@@ -1,0 +1,1525 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  ShoppingCart, Users, Package, DollarSign, TrendingUp, 
+  FileText, Settings, Menu, X, Plus, Edit2, Trash2, 
+  CheckCircle, XCircle, Clock, CreditCard, Download,
+  UserPlus, Phone, MapPin, Calendar, Search, Printer,
+  BarChart3, PieChart, TrendingDown, AlertTriangle,
+  Save, Eye, Filter, ArrowUp, ArrowDown
+} from 'lucide-react';
+
+export default function POSSystem() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [products, setProducts] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [salesmen, setSalesmen] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [invoiceToPrint, setInvoiceToPrint] = useState(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [productsData, customersData, salesData, salesmenData, subsData] = await Promise.all([
+        loadFromStorage('products'),
+        loadFromStorage('customers'),
+        loadFromStorage('sales'),
+        loadFromStorage('salesmen'),
+        loadFromStorage('subscriptions')
+      ]);
+      
+      setProducts(productsData || getDefaultProducts());
+      setCustomers(customersData || getDefaultCustomers());
+      setSales(salesData || getDefaultSales());
+      setSalesmen(salesmenData || []);
+      setSubscriptions(subsData || []);
+    } catch (error) {
+      setProducts(getDefaultProducts());
+      setCustomers(getDefaultCustomers());
+      setSales(getDefaultSales());
+    }
+  };
+
+  const loadFromStorage = async (key) => {
+    try {
+      const result = await window.storage.get(key);
+      return result ? JSON.parse(result.value) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const saveToStorage = async (key, data) => {
+    try {
+      await window.storage.set(key, JSON.stringify(data));
+    } catch (error) {
+      console.error('خطأ في الحفظ:', error);
+    }
+  };
+
+  const getDefaultProducts = () => [
+    { id: 1, name: 'لابتوب HP', price: 15000, stock: 10, category: 'إلكترونيات', cost: 12000 },
+    { id: 2, name: 'ماوس لاسلكي', price: 250, stock: 50, category: 'ملحقات', cost: 150 },
+    { id: 3, name: 'كيبورد ميكانيكي', price: 800, stock: 25, category: 'ملحقات', cost: 500 },
+    { id: 4, name: 'شاشة 24 بوصة', price: 3500, stock: 15, category: 'إلكترونيات', cost: 2800 },
+    { id: 5, name: 'طابعة HP', price: 4500, stock: 8, category: 'إلكترونيات', cost: 3500 }
+  ];
+
+  const getDefaultCustomers = () => [
+    { id: 1, name: 'أحمد محمد', phone: '01012345678', address: 'القاهرة', email: 'ahmed@example.com' },
+    { id: 2, name: 'فاطمة علي', phone: '01098765432', address: 'الجيزة', email: 'fatma@example.com' },
+    { id: 3, name: 'محمود حسن', phone: '01123456789', address: 'الإسكندرية', email: 'mahmoud@example.com' }
+  ];
+
+  const getDefaultSales = () => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+
+    return [
+      { id: 1, customerId: 1, customerName: 'أحمد محمد', items: [{name: 'لابتوب HP', quantity: 1, price: 15000}], total: 15000, date: today.toISOString(), status: 'completed' },
+      { id: 2, customerId: 2, customerName: 'فاطمة علي', items: [{name: 'ماوس لاسلكي', quantity: 2, price: 250}], total: 500, date: yesterday.toISOString(), status: 'completed' },
+      { id: 3, customerId: 3, customerName: 'محمود حسن', items: [{name: 'شاشة 24 بوصة', quantity: 1, price: 3500}], total: 3500, date: lastWeek.toISOString(), status: 'completed' }
+    ];
+  };
+
+  // Stat Card Component
+  const StatCard = ({ title, value, icon, color, subtitle }) => (
+    <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-gray-500 text-sm mb-1">{title}</p>
+          <p className="text-2xl font-bold">{value}</p>
+          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+        </div>
+        <div className={`${color} p-3 rounded-lg text-white`}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Nav Item Component
+  const NavItem = ({ icon, label, active, onClick }) => (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+        active 
+          ? 'bg-blue-600 text-white' 
+          : 'text-gray-700 hover:bg-gray-100'
+      }`}
+    >
+      {icon}
+      <span className="font-medium">{label}</span>
+    </button>
+  );
+
+  // Dashboard Component
+  const Dashboard = () => {
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
+    const totalCost = sales.reduce((sum, sale) => {
+      return sum + sale.items.reduce((itemSum, item) => {
+        const product = products.find(p => p.name === item.name);
+        return itemSum + ((product?.cost || 0) * item.quantity);
+      }, 0);
+    }, 0);
+    const profit = totalRevenue - totalCost;
+    const activeSubscriptions = subscriptions.filter(s => s.status === 'active').length;
+    const todaySales = sales.filter(s => 
+      new Date(s.date).toDateString() === new Date().toDateString()
+    );
+    const todayRevenue = todaySales.reduce((sum, sale) => sum + sale.total, 0);
+
+    const lowStockProducts = products.filter(p => p.stock < 10);
+
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-800">لوحة التحكم</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard 
+            title="إجمالي المبيعات" 
+            value={`${totalRevenue.toLocaleString()} ج.م`}
+            icon={<DollarSign />}
+            color="bg-green-500"
+            subtitle={`الربح: ${profit.toLocaleString()} ج.م`}
+          />
+          <StatCard 
+            title="مبيعات اليوم" 
+            value={`${todayRevenue.toLocaleString()} ج.م`}
+            icon={<ShoppingCart />}
+            color="bg-blue-500"
+            subtitle={`${todaySales.length} عملية`}
+          />
+          <StatCard 
+            title="الاشتراكات النشطة" 
+            value={activeSubscriptions}
+            icon={<CheckCircle />}
+            color="bg-purple-500"
+            subtitle={`من ${subscriptions.length} إجمالي`}
+          />
+          <StatCard 
+            title="إجمالي العملاء" 
+            value={customers.length}
+            icon={<Users />}
+            color="bg-orange-500"
+            subtitle={`${salesmen.length} مندوب`}
+          />
+        </div>
+
+        {lowStockProducts.length > 0 && (
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="text-yellow-600" />
+              <h3 className="font-semibold text-yellow-800">تنبيه: منتجات منخفضة المخزون</h3>
+            </div>
+            <div className="space-y-2">
+              {lowStockProducts.map(p => (
+                <div key={p.id} className="flex justify-between items-center bg-white p-2 rounded">
+                  <span className="font-medium">{p.name}</span>
+                  <span className="text-red-600 font-bold">متبقي: {p.stock}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">آخر المبيعات</h3>
+            <div className="space-y-2">
+              {sales.slice(-5).reverse().map(sale => (
+                <div key={sale.id} className="flex justify-between items-center p-3 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer" onClick={() => setInvoiceToPrint(sale)}>
+                  <div>
+                    <p className="font-medium">{sale.customerName}</p>
+                    <p className="text-sm text-gray-500">{new Date(sale.date).toLocaleDateString('ar-EG')}</p>
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-green-600">{sale.total.toLocaleString()} ج.م</p>
+                    <button className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                      <Printer size={12} />
+                      طباعة
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {sales.length === 0 && (
+                <p className="text-center text-gray-400 py-4">لا توجد مبيعات بعد</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">الاشتراكات القريبة من الانتهاء</h3>
+            <div className="space-y-2">
+              {subscriptions
+                .filter(s => {
+                  const daysLeft = Math.ceil((new Date(s.endDate) - new Date()) / (1000 * 60 * 60 * 24));
+                  return daysLeft <= 7 && daysLeft > 0;
+                })
+                .map(sub => (
+                  <div key={sub.id} className="flex justify-between items-center p-3 bg-yellow-50 rounded">
+                    <div>
+                      <p className="font-medium">{sub.customerName}</p>
+                      <p className="text-sm text-gray-500">ينتهي في {sub.endDate}</p>
+                    </div>
+                    <span className="text-yellow-600 font-semibold">
+                      <Clock size={20} />
+                    </span>
+                  </div>
+                ))}
+              {subscriptions.filter(s => {
+                const daysLeft = Math.ceil((new Date(s.endDate) - new Date()) / (1000 * 60 * 60 * 24));
+                return daysLeft <= 7 && daysLeft > 0;
+              }).length === 0 && (
+                <p className="text-center text-gray-400 py-4">لا توجد اشتراكات قريبة من الانتهاء</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // POS Component
+  const POSScreen = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('all');
+
+    const categories = ['all', ...new Set(products.map(p => p.category))];
+
+    const addToCart = (product) => {
+      if (product.stock === 0) {
+        alert('المنتج غير متوفر في المخزون!');
+        return;
+      }
+      const existingItem = cart.find(item => item.id === product.id);
+      if (existingItem) {
+        if (existingItem.quantity >= product.stock) {
+          alert('الكمية المتاحة غير كافية!');
+          return;
+        }
+        setCart(cart.map(item => 
+          item.id === product.id 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        ));
+      } else {
+        setCart([...cart, { ...product, quantity: 1 }]);
+      }
+    };
+
+    const updateQuantity = (id, quantity) => {
+      const product = products.find(p => p.id === id);
+      if (quantity > product.stock) {
+        alert('الكمية المتاحة غير كافية!');
+        return;
+      }
+      if (quantity <= 0) {
+        setCart(cart.filter(item => item.id !== id));
+      } else {
+        setCart(cart.map(item => 
+          item.id === id ? { ...item, quantity } : item
+        ));
+      }
+    };
+
+    const calculateTotal = () => {
+      return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    };
+
+    const completeSale = async () => {
+      if (cart.length === 0) {
+        alert('السلة فارغة!');
+        return;
+      }
+      
+      if (!selectedCustomer) {
+        alert('يرجى اختيار عميل!');
+        return;
+      }
+
+      const sale = {
+        id: Date.now(),
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name,
+        customerPhone: selectedCustomer.phone,
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        total: calculateTotal(),
+        date: new Date().toISOString(),
+        status: 'completed'
+      };
+
+      const updatedSales = [...sales, sale];
+      setSales(updatedSales);
+      await saveToStorage('sales', updatedSales);
+
+      const updatedProducts = products.map(p => {
+        const cartItem = cart.find(item => item.id === p.id);
+        if (cartItem) {
+          return { ...p, stock: p.stock - cartItem.quantity };
+        }
+        return p;
+      });
+      setProducts(updatedProducts);
+      await saveToStorage('products', updatedProducts);
+      
+      setInvoiceToPrint(sale);
+      setCart([]);
+      setSelectedCustomer(null);
+      alert('تمت عملية البيع بنجاح!');
+    };
+
+    const filteredProducts = products.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white p-4 rounded-lg shadow space-y-3">
+            <input
+              type="text"
+              placeholder="بحث عن منتج..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-4 py-2 rounded-lg whitespace-nowrap transition ${
+                    selectedCategory === cat
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
+                >
+                  {cat === 'all' ? 'الكل' : cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {filteredProducts.map(product => (
+              <div 
+                key={product.id}
+                onClick={() => addToCart(product)}
+                className={`bg-white p-4 rounded-lg shadow cursor-pointer hover:shadow-lg transition ${
+                  product.stock === 0 ? 'opacity-50' : ''
+                }`}
+              >
+                <div className="aspect-square bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
+                  <Package size={48} className="text-gray-400" />
+                </div>
+                <h3 className="font-semibold text-sm mb-1">{product.name}</h3>
+                <p className="text-xs text-gray-500 mb-2">{product.category}</p>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-green-600">{product.price} ج.م</span>
+                  <span className={`text-xs ${product.stock < 10 ? 'text-red-500' : 'text-gray-500'}`}>
+                    متاح: {product.stock}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow h-fit sticky top-4">
+          <h3 className="text-xl font-bold mb-4">سلة المشتريات</h3>
+          
+          {selectedCustomer ? (
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-semibold">{selectedCustomer.name}</p>
+                  <p className="text-xs text-gray-600">{selectedCustomer.phone}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedCustomer(null)}
+                  className="text-red-500"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <select 
+                onChange={(e) => setSelectedCustomer(customers.find(c => c.id === parseInt(e.target.value)))}
+                className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">اختر عميل...</option>
+                {customers.map(customer => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name} - {customer.phone}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
+            {cart.map(item => (
+              <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{item.name}</p>
+                  <p className="text-xs text-gray-500">{item.price} ج.م</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                    className="w-6 h-6 bg-gray-200 rounded hover:bg-gray-300"
+                  >-</button>
+                  <span className="w-8 text-center">{item.quantity}</span>
+                  <button 
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                    className="w-6 h-6 bg-gray-200 rounded hover:bg-gray-300"
+                  >+</button>
+                  <button
+                    onClick={() => updateQuantity(item.id, 0)}
+                    className="text-red-500 mr-2"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {cart.length === 0 && (
+              <p className="text-center text-gray-400 py-8">السلة فارغة</p>
+            )}
+          </div>
+
+          <div className="border-t pt-4 space-y-2">
+            <div className="flex justify-between text-lg font-bold">
+              <span>الإجمالي:</span>
+              <span className="text-green-600">{calculateTotal().toLocaleString()} ج.م</span>
+            </div>
+            <button 
+              onClick={completeSale}
+              className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold"
+            >
+              إتمام عملية البيع
+            </button>
+            <button 
+              onClick={() => setCart([])}
+              className="w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700"
+            >
+              مسح السلة
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Products Management
+  const ProductsScreen = () => {
+    const [showForm, setShowForm] = useState(false);
+    const [editingProduct, setEditingProduct] = useState(null);
+    const [formData, setFormData] = useState({ 
+      name: '', price: 0, cost: 0, stock: 0, category: '' 
+    });
+
+    const saveProduct = async () => {
+      if (!formData.name || formData.price <= 0) {
+        alert('يرجى إدخال جميع البيانات بشكل صحيح');
+        return;
+      }
+
+      if (editingProduct) {
+        const updated = products.map(p => 
+          p.id === editingProduct.id ? { ...p, ...formData } : p
+        );
+        setProducts(updated);
+        await saveToStorage('products', updated);
+      } else {
+        const newProduct = { id: Date.now(), ...formData };
+        const updated = [...products, newProduct];
+        setProducts(updated);
+        await saveToStorage('products', updated);
+      }
+
+      setShowForm(false);
+      setEditingProduct(null);
+      setFormData({ name: '', price: 0, cost: 0, stock: 0, category: '' });
+    };
+
+    const deleteProduct = async (id) => {
+      if (confirm('هل تريد حذف هذا المنتج؟')) {
+        const updated = products.filter(p => p.id !== id);
+        setProducts(updated);
+        await saveToStorage('products', updated);
+      }
+    };
+
+    const editProduct = (product) => {
+      setEditingProduct(product);
+      setFormData({ 
+        name: product.name, 
+        price: product.price, 
+        cost: product.cost || 0,
+        stock: product.stock, 
+        category: product.category 
+      });
+      setShowForm(true);
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">إدارة المنتجات والمخزون</h2>
+          <button 
+            onClick={() => { setShowForm(!showForm); setEditingProduct(null); setFormData({ name: '', price: 0, cost: 0, stock: 0, category: '' }); }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Plus size={20} />
+            منتج جديد
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingProduct ? 'تعديل منتج' : 'إضافة منتج جديد'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="اسم المنتج"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="الفئة"
+                value={formData.category}
+                onChange={(e) => setFormData({...formData, category: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="number"
+                placeholder="سعر البيع"
+                value={formData.price}
+                onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value) || 0})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="number"
+                placeholder="سعر التكلفة"
+                value={formData.cost}
+                onChange={(e) => setFormData({...formData, cost: parseFloat(e.target.value) || 0})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="number"
+                placeholder="الكمية في المخزون"
+                value={formData.stock}
+                onChange={(e) => setFormData({...formData, stock: parseInt(e.target.value) || 0})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button 
+                onClick={saveProduct}
+                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
+              >
+                {editingProduct ? 'حفظ التعديلات' : 'إضافة المنتج'}
+              </button>
+              <button 
+                onClick={() => { setShowForm(false); setEditingProduct(null); }}
+                className="px-6 bg-gray-200 py-2 rounded-lg hover:bg-gray-300"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">المنتج</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">الفئة</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">سعر البيع</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">التكلفة</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">الربح</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">المخزون</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {products.map(product => {
+                const profit = product.price - (product.cost || 0);
+                const profitPercent = ((profit / product.price) * 100).toFixed(1);
+                return (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="font-medium">{product.name}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{product.category}</td>
+                    <td className="px-6 py-4 text-sm font-semibold">{product.price} ج.م</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{product.cost || 0} ج.م</td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-green-600 font-semibold">
+                        {profit} ج.م ({profitPercent}%)
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`text-sm font-semibold ${
+                        product.stock < 10 ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {product.stock}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => editProduct(product)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => deleteProduct(product.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // Subscriptions Component
+  const SubscriptionsScreen = () => {
+    const [showForm, setShowForm] = useState(false);
+    const [formData, setFormData] = useState({
+      customerName: '',
+      phone: '',
+      email: '',
+      plan: 'monthly',
+      startDate: new Date().toISOString().split('T')[0]
+    });
+
+    const plans = {
+      monthly: { name: 'شهري', price: 500, duration: 30 },
+      quarterly: { name: 'ربع سنوي', price: 1400, duration: 90 },
+      yearly: { name: 'سنوي', price: 5000, duration: 365 }
+    };
+
+    const createSubscription = async () => {
+      if (!formData.customerName || !formData.phone) {
+        alert('يرجى إدخال جميع البيانات');
+        return;
+      }
+
+      const plan = plans[formData.plan];
+      const startDate = new Date(formData.startDate);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + plan.duration);
+
+      const subscription = {
+        id: Date.now(),
+        customerName: formData.customerName,
+        phone: formData.phone,
+        email: formData.email,
+        plan: formData.plan,
+        planName: plan.name,
+        amount: plan.price,
+        startDate: formData.startDate,
+        endDate: endDate.toISOString().split('T')[0],
+        status: 'pending',
+        paymentMethod: 'instapay',
+        instaPayReference: `IP${Date.now()}`,
+        createdAt: new Date().toISOString()
+      };
+
+      const updated = [...subscriptions, subscription];
+      setSubscriptions(updated);
+      await saveToStorage('subscriptions', updated);
+      
+      setShowForm(false);
+      setFormData({ 
+        customerName: '', 
+        phone: '', 
+        email: '', 
+        plan: 'monthly', 
+        startDate: new Date().toISOString().split('T')[0] 
+      });
+      
+      alert(`✅ تم إنشاء الاشتراك بنجاح!\n\n📱 رقم المرجع InstaPay: ${subscription.instaPayReference}\n💰 المبلغ: ${plan.price} ج.م\n\nيمكن للعميل الدفع عبر InstaPay باستخدام رقم المرجع`);
+    };
+
+    const updateStatus = async (id, newStatus) => {
+      const updated = subscriptions.map(sub =>
+        sub.id === id ? { ...sub, status: newStatus, paidAt: newStatus === 'active' ? new Date().toISOString() : sub.paidAt } : sub
+      );
+      setSubscriptions(updated);
+      await saveToStorage('subscriptions', updated);
+    };
+
+    const renewSubscription = async (sub) => {
+      const plan = plans[sub.plan];
+      const newEndDate = new Date(sub.endDate);
+      newEndDate.setDate(newEndDate.getDate() + plan.duration);
+
+      const updated = subscriptions.map(s =>
+        s.id === sub.id ? { 
+          ...s, 
+          endDate: newEndDate.toISOString().split('T')[0],
+          status: 'active',
+          renewedAt: new Date().toISOString()
+        } : s
+      );
+      setSubscriptions(updated);
+      await saveToStorage('subscriptions', updated);
+      alert('تم تجديد الاشتراك بنجاح!');
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">إدارة الاشتراكات</h2>
+          <button 
+            onClick={() => setShowForm(!showForm)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Plus size={20} />
+            اشتراك جديد
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">إنشاء اشتراك جديد - ربط InstaPay</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="اسم العميل *"
+                value={formData.customerName}
+                onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="tel"
+                placeholder="رقم الهاتف *"
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="email"
+                placeholder="البريد الإلكتروني"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={formData.plan}
+                onChange={(e) => setFormData({...formData, plan: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="monthly">📅 شهري - {plans.monthly.price} ج.م</option>
+                <option value="quarterly">📊 ربع سنوي - {plans.quarterly.price} ج.م</option>
+                <option value="yearly">⭐ سنوي - {plans.yearly.price} ج.م</option>
+              </select>
+              <input
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                💡 سيتم إنشاء رقم مرجع InstaPay تلقائياً لإتمام عملية الدفع
+              </p>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button 
+                onClick={createSubscription}
+                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+              >
+                <CreditCard size={20} />
+                إنشاء وربط InstaPay
+              </button>
+              <button 
+                onClick={() => setShowForm(false)}
+                className="px-6 bg-gray-200 py-2 rounded-lg hover:bg-gray-300"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-lg shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">اشتراكات نشطة</h3>
+              <CheckCircle size={32} />
+            </div>
+            <p className="text-4xl font-bold">
+              {subscriptions.filter(s => s.status === 'active').length}
+            </p>
+          </div>
+          <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-6 rounded-lg shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">اشتراكات معلقة</h3>
+              <Clock size={32} />
+            </div>
+            <p className="text-4xl font-bold">
+              {subscriptions.filter(s => s.status === 'pending').length}
+            </p>
+          </div>
+          <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-6 rounded-lg shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">اشتراكات منتهية</h3>
+              <XCircle size={32} />
+            </div>
+            <p className="text-4xl font-bold">
+              {subscriptions.filter(s => s.status === 'expired').length}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {subscriptions.map(sub => {
+            const daysLeft = Math.ceil((new Date(sub.endDate) - new Date()) / (1000 * 60 * 60 * 24));
+            return (
+              <div key={sub.id} className="bg-white p-5 rounded-lg shadow hover:shadow-lg transition">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-semibold text-lg">{sub.customerName}</h4>
+                    <p className="text-sm text-gray-500 flex items-center gap-1">
+                      <Phone size={14} />
+                      {sub.phone}
+                    </p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    sub.status === 'active' ? 'bg-green-100 text-green-700' :
+                    sub.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-red-100 text-red-700'
+                  }`}>
+                    {sub.status === 'active' ? '✓ نشط' : sub.status === 'pending' ? '⏳ معلق' : '✕ منتهي'}
+                  </span>
+                </div>
+                
+                <div className="space-y-2 text-sm mb-4">
+                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="text-gray-600">الباقة:</span>
+                    <span className="font-medium">{sub.planName}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="text-gray-600">المبلغ:</span>
+                    <span className="font-bold text-green-600">{sub.amount} ج.م</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="text-gray-600">البداية:</span>
+                    <span>{new Date(sub.startDate).toLocaleDateString('ar-EG')}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="text-gray-600">النهاية:</span>
+                    <span>{new Date(sub.endDate).toLocaleDateString('ar-EG')}</span>
+                  </div>
+                  {sub.status === 'active' && daysLeft > 0 && (
+                    <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
+                      <span className="text-blue-700 font-medium">متبقي:</span>
+                      <span className="text-blue-700 font-bold">{daysLeft} يوم</span>
+                    </div>
+                  )}
+                  {sub.instaPayReference && (
+                    <div className="p-2 bg-purple-50 rounded">
+                      <p className="text-xs text-gray-600">InstaPay Reference:</p>
+                      <p className="font-mono text-sm font-semibold text-purple-700">{sub.instaPayReference}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  {sub.status === 'pending' && (
+                    <button 
+                      onClick={() => updateStatus(sub.id, 'active')}
+                      className="flex-1 bg-green-600 text-white py-2 rounded text-sm hover:bg-green-700 flex items-center justify-center gap-1"
+                    >
+                      <CheckCircle size={16} />
+                      تفعيل
+                    </button>
+                  )}
+                  {sub.status === 'active' && (
+                    <>
+                      <button 
+                        onClick={() => renewSubscription(sub)}
+                        className="flex-1 bg-blue-600 text-white py-2 rounded text-sm hover:bg-blue-700"
+                      >
+                        تجديد
+                      </button>
+                      <button 
+                        onClick={() => updateStatus(sub.id, 'expired')}
+                        className="flex-1 bg-red-600 text-white py-2 rounded text-sm hover:bg-red-700"
+                      >
+                        إيقاف
+                      </button>
+                    </>
+                  )}
+                  {sub.status === 'expired' && (
+                    <button 
+                      onClick={() => renewSubscription(sub)}
+                      className="flex-1 bg-green-600 text-white py-2 rounded text-sm hover:bg-green-700"
+                    >
+                      إعادة تفعيل
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Salesmen Component
+  const SalesmenScreen = () => {
+    const [showForm, setShowForm] = useState(false);
+    const [formData, setFormData] = useState({ name: '', phone: '', area: '', commission: 5 });
+
+    const addSalesman = async () => {
+      if (!formData.name || !formData.phone) {
+        alert('يرجى إدخال جميع البيانات');
+        return;
+      }
+
+      const salesman = {
+        id: Date.now(),
+        ...formData,
+        totalSales: 0,
+        commission: parseFloat(formData.commission),
+        activeSince: new Date().toISOString(),
+        location: { lat: 30.0444 + Math.random() * 0.1, lng: 31.2357 + Math.random() * 0.1 }
+      };
+
+      const updated = [...salesmen, salesman];
+      setSalesmen(updated);
+      await saveToStorage('salesmen', updated);
+      
+      setShowForm(false);
+      setFormData({ name: '', phone: '', area: '', commission: 5 });
+    };
+
+    const deleteSalesman = async (id) => {
+      if (confirm('هل تريد حذف هذا المندوب؟')) {
+        const updated = salesmen.filter(s => s.id !== id);
+        setSalesmen(updated);
+        await saveToStorage('salesmen', updated);
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">المندوبين الخارجيين</h2>
+          <button 
+            onClick={() => setShowForm(!showForm)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <UserPlus size={20} />
+            مندوب جديد
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">إضافة مندوب جديد</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="اسم المندوب"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="tel"
+                placeholder="رقم الهاتف"
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="المنطقة"
+                value={formData.area}
+                onChange={(e) => setFormData({...formData, area: e.target.value})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="number"
+                placeholder="نسبة العمولة %"
+                value={formData.commission}
+                onChange={(e) => setFormData({...formData, commission: parseFloat(e.target.value)})}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button 
+                onClick={addSalesman}
+                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
+              >
+                إضافة
+              </button>
+              <button 
+                onClick={() => setShowForm(false)}
+                className="px-6 bg-gray-200 py-2 rounded-lg hover:bg-gray-300"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {salesmen.map(salesman => {
+            const salesmanSales = sales.filter(s => s.salesmanId === salesman.id);
+            const totalSales = salesmanSales.reduce((sum, s) => sum + s.total, 0);
+            const commissionEarned = totalSales * (salesman.commission / 100);
+
+            return (
+              <div key={salesman.id} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <Users size={28} className="text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-lg">{salesman.name}</h4>
+                    <p className="text-sm text-gray-500 flex items-center gap-1">
+                      <MapPin size={14} />
+                      {salesman.area}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => deleteSalesman(salesman.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Phone size={16} className="text-gray-400" />
+                    <span>{salesman.phone}</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-gray-50 rounded">
+                    <span className="text-gray-600">نسبة العمولة:</span>
+                    <span className="font-medium text-blue-600">{salesman.commission}%</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-green-50 rounded">
+                    <span className="text-gray-600">إجمالي المبيعات:</span>
+                    <span className="font-bold text-green-600">{totalSales.toLocaleString()} ج.م</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-purple-50 rounded">
+                    <span className="text-gray-600">العمولة المستحقة:</span>
+                    <span className="font-bold text-purple-600">{commissionEarned.toLocaleString()} ج.م</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-blue-50 rounded">
+                    <span className="text-gray-600">عدد العمليات:</span>
+                    <span className="font-medium">{salesmanSales.length}</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Calendar size={16} className="text-gray-400" />
+                    <span className="text-xs">
+                      نشط منذ {new Date(salesman.activeSince).toLocaleDateString('ar-EG')}
+                    </span>
+                  </div>
+                </div>
+
+                <button className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
+                  <MapPin size={16} />
+                  عرض الموقع
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {salesmen.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">خريطة المواقع (محاكاة)</h3>
+            <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
+              <div className="text-center">
+                <MapPin size={64} className="text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">يمكن دمج خريطة تفاعلية هنا</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  عدد المندوبين النشطين: {salesmen.length}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Reports Screen
+  const ReportsScreen = () => {
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [reportType, setReportType] = useState('sales');
+
+    const filteredSales = sales.filter(sale => {
+      if (!dateRange.start || !dateRange.end) return true;
+      const saleDate = new Date(sale.date);
+      return saleDate >= new Date(dateRange.start) && saleDate <= new Date(dateRange.end);
+    });
+
+    const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
+    const totalCost = filteredSales.reduce((sum, sale) => {
+      return sum + sale.items.reduce((itemSum, item) => {
+        const product = products.find(p => p.name === item.name);
+        return itemSum + ((product?.cost || 0) * item.quantity);
+      }, 0);
+    }, 0);
+    const totalProfit = totalRevenue - totalCost;
+    const avgSale = filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0;
+
+    const productSales = {};
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        if (!productSales[item.name]) {
+          productSales[item.name] = { quantity: 0, revenue: 0 };
+        }
+        productSales[item.name].quantity += item.quantity;
+        productSales[item.name].revenue += item.price * item.quantity;
+      });
+    });
+
+    const topProducts = Object.entries(productSales)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .slice(0, 5);
+
+    const customerSales = {};
+    filteredSales.forEach(sale => {
+      if (!customerSales[sale.customerName]) {
+        customerSales[sale.customerName] = { count: 0, total: 0 };
+      }
+      customerSales[sale.customerName].count += 1;
+      customerSales[sale.customerName].total += sale.total;
+    });
+
+    const topCustomers = Object.entries(customerSales)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 5);
+
+    const subscriptionRevenue = subscriptions
+      .filter(s => s.status === 'active')
+      .reduce((sum, sub) => sum + sub.amount, 0);
+
+    const exportReport = () => {
+      const reportData = {
+        تاريخ_التقرير: new Date().toLocaleDateString('ar-EG'),
+        الفترة: dateRange.start && dateRange.end 
+          ? `من ${dateRange.start} إلى ${dateRange.end}` 
+          : 'كل الفترات',
+        إجمالي_المبيعات: `${totalRevenue} ج.م`,
+        إجمالي_التكلفة: `${totalCost} ج.م`,
+        صافي_الربح: `${totalProfit} ج.م`,
+        عدد_العمليات: filteredSales.length,
+        متوسط_البيع: `${avgSale.toFixed(2)} ج.م`
+      };
+
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `تقرير-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">التقارير المالية</h2>
+          <button 
+            onClick={exportReport}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            <Download size={20} />
+            تصدير التقرير
+          </button>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">من تاريخ</label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">إلى تاريخ</label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">نوع التقرير</label>
+              <select
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="sales">تقرير المبيعات</option>
+                <option value="products">تقرير المنتجات</option>
+                <option value="customers">تقرير العملاء</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard 
+            title="إجمالي المبيعات" 
+            value={`${totalRevenue.toLocaleString()} ج.م`}
+            icon={<DollarSign />}
+            color="bg-blue-500"
+            subtitle={`${filteredSales.length} عملية`}
+          />
+          <StatCard 
+            title="إجمالي التكلفة" 
+            value={`${totalCost.toLocaleString()} ج.م`}
+            icon={<TrendingDown />}
+            color="bg-red-500"
+          />
+          <StatCard 
+            title="صافي الربح" 
+            value={`${totalProfit.toLocaleString()} ج.م`}
+            icon={<TrendingUp />}
+            color="bg-green-500"
+            subtitle={`${((totalProfit/totalRevenue)*100).toFixed(1)}%`}
+          />
+          <StatCard 
+            title="متوسط البيع" 
+            value={`${avgSale.toLocaleString('ar-EG', {maximumFractionDigits: 0})} ج.م`}
+            icon={<BarChart3 />}
+            color="bg-purple-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <TrendingUp className="text-green-600" />
+              أفضل 5 منتجات مبيعاً
+            </h3>
+            <div className="space-y-3">
+              {topProducts.map(([name, data], index) => (
+                <div key={name} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium">{name}</p>
+                      <p className="text-sm text-gray-500">الكمية: {data.quantity}</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-green-600">{data.revenue.toLocaleString()} ج.م</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Users className="text-blue-600" />
+              أفضل 5 عملاء
+            </h3>
+            <div className="space-y-3">
+              {topCustomers.map(([name, data], index) => (
+                <div key={name} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium">{name}</p>
+                      <p className="text-sm text-gray-500">{data.count} عملية شراء</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-green-600">{data.total.toLocaleString()} ج.م</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">ملخص الاشتراكات</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-purple-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">الاشتراكات النشطة</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {subscriptions.filter(s => s.status === 'active').length}
+              </p>
+            </div>
+            <div className="p-4 bg-green-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">إيرادات الاشتراكات</p>
+              <p className="text-2xl font-bold text-green-600">
+                {subscriptionRevenue.toLocaleString()} ج.م
+              </p>
+            </div>
+            <div className="p-4 bg-yellow-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">اشتراكات معلقة</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {subscriptions.filter(s => s.status === 'pending').length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Invoice Print Component
+  const InvoicePrint = ({ invoice, onClose }) => {
+    if (!invoice) return null;
+
+    const printInvoice = () => {
+      window.print();
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="p-8" id="invoice">
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <h1 className="text-3xl font-bold text-blue-600 mb-2">فاتورة بيع</h1>
+                <p className="text-gray-600">رقم الفاتورة: #{invoice.id}</p>
+                <p className="text-gray-600">التاريخ: {new Date(invoice.date).toLocaleDateString('ar-EG')}</p>
+              </div>
+              <div className="text-left">
+                <h2 className="text-xl font-bold mb-2">نظام نقطة البيع</h2>
+                <p className="text-sm text-gray-600">القاهرة، مصر</p>
+                <p className="text-sm text-gray-600">01000000000</p>
+              </div>
+            </div>
+
+            <div className="border-t border-b py-4 mb-6">
+              <h3 className="font-semibold mb-2">بيانات العميل:</h3>
+              <p className="text-gray-700">{invoice.customerName}</p>
+              <p className="text-gray-600 text-sm">{invoice.customerPhone}</p>
+            </div>
+
+            <table className="w-full mb-6">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-right">المنتج</th>
+                  <th className="px-4 py-3 text-center">الكمية</th>
+                  <th className="px-4 py-3 text-right">السعر</th>
+                  <th className="px-4 py-3 text-right">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoice.items.map((item, index) => (
+                  <tr key={index} className="border-b">
+                    <td className="px-4 py-3">{item.name}</td>
+                    <td className="px-4 py-3 text-center">{item.quantity}</td>
+                    <td className="px-4 py-3">{item.price} ج.م</td>
+                    <td className="px-4 py-3 font-semibold">{(item.price * item.quantity).toLocaleString()} ج.م</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="flex justify-end mb-8">
+              <div className="w-64">
+                <div className="flex justify-between py-2 text-xl font-bold border-t-2">
+                  <span>الإجمالي:</span>
+                  <span className="text-green-600">{invoice.total.toLocaleString()} ج.م</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center text-sm text-gray-500 border-t pt-4">
+              <p>شكراً لتعاملكم معنا</p>
+              <p>نتمنى لكم تجربة تسوق ممتعة</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 p-4 border-t bg-gray-50 print:hidden">
+            <button 
+              onClick={printInvoice}
+              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+            >
+              <Printer size={20} />
+              طباعة
+            </button>
+            <button 
+              onClick={onClose}
+              className="flex-1 bg-gray-200 py-2 rounded-lg hover:bg-gray-300"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100" dir="rtl">
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #invoice, #invoice * { visibility: visible; }
+          #invoice { position: absolute; left: 0; top: 0; }
+          .print\\:hidden { display: none !important; }
+        }
+      `}</style>
+
+      {/* Header */}
+      <header className="bg-white shadow-md print:hidden">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden"
+            >
+              <Menu size={24} />
+            </button>
+            <h1 className="text-2xl font-bold text-blue-600">💼 نظام نقطة البيع المتكامل</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600 hidden md:block">
+              {new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className={`${sidebarOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 right-0 z-50 w-64 bg-white shadow-lg transition-transform duration-300 print:hidden`}>
+          <nav className="p-4 space-y-2 mt-16 lg:mt-4">
+            <NavItem icon={<TrendingUp />} label="لوحة التحكم" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
+            <NavItem icon={<ShoppingCart />} label="نقطة البيع" active={activeTab === 'pos'} onClick={() => { setActiveTab('pos'); setSidebarOpen(false); }} />
+            <NavItem icon={<Package />} label="المنتجات والمخزون" active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setSidebarOpen(false); }} />
+            <NavItem icon={<CreditCard />} label="الاشتراكات" active={activeTab === 'subscriptions'} onClick={() => { setActiveTab('subscriptions'); setSidebarOpen(false); }} />
+            <NavItem icon={<Users />} label="المندوبين" active={activeTab === 'salesmen'} onClick={() => { setActiveTab('salesmen'); setSidebarOpen(false); }} />
+            <NavItem icon={<BarChart3 />} label="التقارير المالية" active={activeTab === 'reports'} onClick={() => { setActiveTab('reports'); setSidebarOpen(false); }} />
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 p-4 lg:p-6">
+          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'pos' && <POSScreen />}
+          {activeTab === 'products' && <ProductsScreen />}
+          {activeTab === 'subscriptions' && <SubscriptionsScreen />}
+          {activeTab === 'salesmen' && <SalesmenScreen />}
+          {activeTab === 'reports' && <ReportsScreen />}
+        </main>
+      </div>
+
+      {/* Invoice Print Modal */}
+      {invoiceToPrint && (
+        <InvoicePrint invoice={invoiceToPrint} onClose={() => setInvoiceToPrint(null)} />
+      )}
+    </div>
+  );
+}
