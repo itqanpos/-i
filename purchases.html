@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المشتريات - إتقان</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #1a6fd6;
+            --bg: #f4f6f9;
+            --white: #ffffff;
+            --text: #333;
+            --gray: #6b7280;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        body { font-family: 'Tajawal', sans-serif; background: var(--bg); color: var(--text); }
+
+        /* --- الهيدر --- */
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.3); }
+
+        /* --- المحتوى الرئيسي --- */
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* شريط الأدوات العلوي */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .search-box {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+        }
+
+        .search-box i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+        }
+
+        .add-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .add-btn:hover { background: #155bb5; }
+
+        /* تصميم الجدول */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            overflow-x: auto; /* للتمرير الأفقي في الجوال */
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        thead {
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            text-align: right;
+            padding: 15px;
+            font-size: 14px;
+            color: var(--gray);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f9f9f9; }
+
+        /* حالات الفاتورة (Badges) */
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-paid { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-cancelled { background: #fee2e2; color: #b91c1c; }
+
+        /* أزرار الإجراءات */
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            font-size: 16px;
+            color: var(--gray);
+            transition: 0.2s;
+        }
+        .action-btn:hover { color: var(--primary); }
+        .action-btn.delete:hover { color: var(--danger); }
+
+        /* --- النافذة المنبثقة (Modal) --- */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-modal {
+            background: none; border: none; font-size: 20px; cursor: pointer; color: var(--gray);
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-cart-shopping fa-lg"></i>
+            <h3>إدارة المشتريات</h3>
+        </div>
+        <a href="index.html" class="back-btn">
+            <i class="fa-solid fa-arrow-right"></i>
+            الرئيسية
+        </a>
+    </header>
+
+    <div class="container">
+        
+        <div class="toolbar">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="searchInput" placeholder="بحث باسم المورد أو رقم الفاتورة...">
+            </div>
+            <button class="add-btn" onclick="openModal()">
+                <i class="fa-solid fa-plus"></i>
+                فاتورة جديدة
+            </button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>المورد</th>
+                        <th>تاريخ الفاتورة</th>
+                        <th>إجمالي المبلغ</th>
+                        <th>الحالة</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="purchasesTable">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>إضافة فاتورة شراء</h3>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form onsubmit="addPurchase(event)">
+                <div class="form-group">
+                    <label>اسم المورد</label>
+                    <input type="text" id="supplierName" required placeholder="مثال: شركة المراعي">
+                </div>
+                <div class="form-group">
+                    <label>تاريخ الفاتورة</label>
+                    <input type="date" id="purchaseDate" required>
+                </div>
+                <div class="form-group">
+                    <label>إجمالي المبلغ</label>
+                    <input type="number" id="totalAmount" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>الحالة</label>
+                    <select id="status">
+                        <option value="paid">مدفوع</option>
+                        <option value="pending">آجل (غير مدفوع)</option>
+                    </select>
+                </div>
+                <button type="submit" class="submit-btn">حفظ الفاتورة</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // بيانات تجريبية
+        let purchases = [
+            { id: 1024, supplier: "شركة النور للتوزيع", date: "2023-10-25", total: 1500.00, status: "paid" },
+            { id: 1025, supplier: "مؤسسة الأغذية الحديثة", date: "2023-10-26", total: 3200.50, status: "pending" },
+            { id: 1026, supplier: "مصنع البلاستيك", date: "2023-10-27", total: 450.00, status: "cancelled" },
+            { id: 1027, supplier: "المورد العام", date: "2023-10-28", total: 8500.00, status: "paid" },
+        ];
+
+        // دالة لعرض البيانات في الجدول
+        function renderTable(data) {
+            const tbody = document.getElementById('purchasesTable');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                let statusBadge = '';
+                if(item.status === 'paid') statusBadge = '<span class="status-badge status-paid">مدفوع</span>';
+                else if(item.status === 'pending') statusBadge = '<span class="status-badge status-pending">آجل</span>';
+                else statusBadge = '<span class="status-badge status-cancelled">ملغي</span>';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>#${item.id}</td>
+                        <td>${item.supplier}</td>
+                        <td>${item.date}</td>
+                        <td style="font-weight:bold">${item.total.toFixed(2)} ر.س</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <button class="action-btn" title="عرض التفاصيل"><i class="fa-regular fa-eye"></i></button>
+                            <button class="action-btn" title="تعديل"><i class="fa-solid fa-pen"></i></button>
+                            <button class="action-btn delete" title="حذف" onclick="deleteItem(${item.id})"><i class="fa-regular fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // البحث
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = purchases.filter(p => 
+                p.supplier.includes(term) || p.id.toString().includes(term)
+            );
+            renderTable(filtered);
+        });
+
+        // دوال النافذة المنبثقة (Modal)
+        function openModal() {
+            document.getElementById('addModal').style.display = 'flex';
+            // تعيين تاريخ اليوم كافتراضي
+            document.getElementById('purchaseDate').valueAsDate = new Date();
+        }
+
+        function closeModal() {
+            document.getElementById('addModal').style.display = 'none';
+        }
+
+        // إغلاق النافذة عند النقر خارجها
+        window.onclick = function(event) {
+            const modal = document.getElementById('addModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // إضافة فاتورة جديدة
+        function addPurchase(e) {
+            e.preventDefault();
+            
+            const newPurchase = {
+                id: purchases.length > 0 ? purchases[purchases.length - 1].id + 1 : 1001,
+                supplier: document.getElementById('supplierName').value,
+                date: document.getElementById('purchaseDate').value,
+                total: parseFloat(document.getElementById('totalAmount').value),
+                status: document.getElementById('status').value
+            };
+
+            purchases.push(newPurchase);
+            renderTable(purchases);
+            closeModal();
+            e.target.reset();
+        }
+
+        // حذف عنصر (وهمي)
+        function deleteItem(id) {
+            if(confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) {
+                purchases = purchases.filter(p => p.id !== id);
+                renderTable(purchases);
+            }
+        }
+
+        // تشغيل الدالة عند تحميل الصفحة
+        renderTable(purchases);
+
+    </script>
+</body>
+</html>
